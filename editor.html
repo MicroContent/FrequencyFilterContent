@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>FrequencyFilterContentEditor</title>
-    <script type="application/javascript"> 
+    <script type="application/javascript">
         /** 
             dont delete! used for initialization.
         **/
@@ -13,6 +14,7 @@
         }
     </script>
 </head>
+
 <body>
 
     <!-- EDIT Form for User Input -->
@@ -68,7 +70,7 @@
         var removeRowButton = document.getElementById("removeRow");
         removeRowButton.onclick = function () {
             if (table.rows.length > 4) {
-                table.deleteRow(table.rows.length -1);
+                table.deleteRow(table.rows.length - 1);
             }
         }
 
@@ -102,8 +104,8 @@
 
         window.data.tableContent.forEach(function (item, i) {
             var row;
-            if (table.rows[i] !== undefined) {
-                row = table.rows[i];
+            if (table.rows[i + 1] !== undefined) {
+                row = table.rows[i + 1];
                 row.cells[0].firstChild.value = item[0];
                 row.cells[1].firstChild.value = item[1];
                 row.cells[2].firstChild.value = item[2];
@@ -124,9 +126,9 @@
                 input3.value = item[2];
                 cell3.appendChild(input3);
             }
-
         });
     </script>
     <!-- EDIT Form logic -->
 </body>
+
 </html>
