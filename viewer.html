@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>FrequencyFilterContentViewer</title>
+  <script type="application/javascript">
+    /** 
+        dont delete! 
+    **/
+    function init() {
+      window.data = getData();
+
+      setXapiObjectGetter(getXapiObject);
+      registerOnSubmitListener(onSubmit);
+    }
+    /** 
+        dont delete! 
+    **/
+    function updateLayout() {
+      propagateLayoutChanges();
+    }
+    /** 
+        dont delete! 
+    **/
+    function sendStatement(stmt) {
+      sendXapiStatement(stmt);
+    }
+  </script>
+
+  <!-- EDIT css for custom styling 
+         
+        NOTE: you can use Material-css classes for styling 
+        Source: https://cdn.rawgit.com/FezVrasta/bootstrap-material-design/gh-pages-v3/bootstrap-elements.html
+    -->
+  <style type="text/css">
+  </style>
+  <!-- EDIT css for custom styling -->
+
+</head>
+
+<body>
+  <!-- EDIT html for card display -->
+  <h1 id="title"></h1>
+
+  <div id="container">
+    <div id="description"></div>
+
+    <canvas id="canvas" width="600" height="300" style="width: 100%"></canvas>
+
+  </div>
+  <!-- <div>
+            <button id="toggleHintBtn" class="btn btn-primary" onclick="toggleHint()">Show Hint</button>
+        </div> -->
+  <div id="coords">
+
+  </div>
+
+  <!-- EDIT html for card display  -->
+
+  <!-- EDIT card logic -->
+  <script type="application/javascript">
+    var isShowingSolution = false;
+    var canvas = document.getElementById("canvas");
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("mouseup", onMouseUp);
+    var points = [];
+    var coords = document.getElementById("coords");
+
+    function setContent() {
+      // Description
+      document.getElementById("description").innerText = window.data.description;
+
+      data.tableContent.forEach(function (row) {
+        var r = 10;
+        var x = row[0] * x_pixel_per_unit;
+        var y = -100;
+
+        points.push({
+          x: x,
+          y: y,
+          r: r,
+          hit_x: x - r,
+          hit_y: y - r,
+          hit_width: r * 2,
+          hit_height: r * 2,
+          correct_from: row[1],
+          correct_to: row[2],
+          correct: false
+        });
+      });
+
+      draw();
+
+    }
+
+    var grid_size = 25;
+    var x_axis = { start: 1000, suffix: '', datapoints: [10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 10500, 20000] };
+    var y_axis = { start: -70, suffix: 'db' };
+
+    var ctx = canvas.getContext("2d");
+
+    // canvas width
+    var canvas_width = canvas.width;
+
+    // canvas height
+    var canvas_height = canvas.height;
+
+    // no of vertical grid lines
+    var num_lines_x = Math.floor(canvas_height / grid_size);
+
+    // no of horizontal grid lines
+    var num_lines_y = Math.floor(canvas_width / grid_size);
+
+    var x_axis_distance_grid_lines = num_lines_x - 1;
+    var y_axis_distance_grid_lines = 1;
+
+    var x_pixel_per_unit = grid_size / x_axis.start;
+    var y_pixel_per_unit = grid_size / 10;
+    var y_unit_per_pixel = 10 / grid_size;
+
+    var color_points_correct = "green";
+    var color_points_wrong = "red";
+    var color_points_idle = "#3f51b5";
+
+    function draw() {
+      // Reset
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas_width, canvas_height);
+      ctx.fillStyle = "#000000";
+
+      // Draw grid lines along X-axis
+      for (var i = 0; i <= num_lines_x; i++) {
+        ctx.beginPath();
+        ctx.lineWidth = 1;
+
+        // If line represents X-axis draw in different color
+        if (i == x_axis_distance_grid_lines)
+          ctx.strokeStyle = "#000000";
+        else
+          ctx.strokeStyle = "#e9e9e9";
+
+        if (i == num_lines_x) {
+          ctx.moveTo(0, grid_size * i);
+          ctx.lineTo(canvas_width, grid_size * i);
+        }
+        else {
+          ctx.moveTo(0, grid_size * i + 0.5);
+          ctx.lineTo(canvas_width, grid_size * i + 0.5);
+        }
+        ctx.stroke();
+      }
+
+      // Draw grid lines along Y-axis
+      for (i = 0; i <= num_lines_y; i++) {
+        ctx.beginPath();
+        ctx.lineWidth = 1;
+
+        // If line represents Y-axis draw in different color
+        if (i == y_axis_distance_grid_lines)
+          ctx.strokeStyle = "#000000";
+        else
+          ctx.strokeStyle = "#e9e9e9";
+
+        if (i == num_lines_y) {
+          ctx.moveTo(grid_size * i, 0);
+          ctx.lineTo(grid_size * i, canvas_height);
+        }
+        else {
+          ctx.moveTo(grid_size * i + 0.5, 0);
+          ctx.lineTo(grid_size * i + 0.5, canvas_height);
+        }
+        ctx.stroke();
+      }
+
+      ctx.translate(y_axis_distance_grid_lines * grid_size, x_axis_distance_grid_lines * grid_size);
+
+      // Ticks marks along the positive X-axis
+      for (i = 1; i < (num_lines_y - y_axis_distance_grid_lines); i++) {
+        ctx.beginPath();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "#000000";
+
+        // Draw a tick mark 6px long (-3 to 3)
+        ctx.moveTo(grid_size * i + 0.5, -3);
+        ctx.lineTo(grid_size * i + 0.5, 3);
+        ctx.stroke();
+
+        // Text value at that point
+        ctx.font = '7px Arial';
+        ctx.textAlign = 'start';
+        ctx.fillText(x_axis.start * i + x_axis.suffix, grid_size * i - 2, 15);
+      }
+
+      // Ticks marks along the negative Y-axis
+      // Negative Y-axis of graph is positive Y-axis of the canvas
+      for (i = 1; i < x_axis_distance_grid_lines; i++) {
+        ctx.beginPath();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "#000000";
+
+        // Draw a tick mark 6px long (-3 to 3)
+        ctx.moveTo(-3, -grid_size * i + 0.5);
+        ctx.lineTo(3, -grid_size * i + 0.5);
+        ctx.stroke();
+
+        // Text value at that point
+        ctx.font = 'px Arial';
+        ctx.textAlign = 'start';
+        ctx.fillText(y_axis.start + 10 * i + y_axis.suffix, -18, -grid_size * i + 3);
+      }
+
+
+      var curve = [];
+      // Define Points
+      points.forEach(function (p) {
+        var c = {};
+        if (isShowingSolution) {
+          if (p.correct) {
+            c.x = p.x;
+            c.y = p.y;
+            c.r = p.r;
+            c.color = color_points_correct;
+          } else {
+            c.x = p.x;
+            c.y = mapToAxis((parseInt(p.correct_from, 10) + parseInt(p.correct_to, 10)) / 2);
+            c.r = p.r;
+            c.color = color_points_wrong;
+          }
+        } else {
+          c.x = p.x;
+          c.y = p.y;
+          c.r = p.r;
+          c.color = color_points_idle;
+        }
+        curve.push(c);
+      });
+
+      drawCurve(curve);
+      // Draw points
+      curve.forEach(function (p) {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI, false);
+        ctx.fill();
+      });
+
+    }
+
+    function drawCurve(curve) {
+      ctx.beginPath();
+      ctx.moveTo(0, curve[0].y);
+      curve.forEach(function (p) {
+        ctx.lineTo(p.x, p.y);
+      });
+      ctx.lineTo(canvas_width, 0);
+      ctx.stroke();
+    }
+
+    var selectedPoint;
+    var selectionStart;
+    var yStart;
+    function onMouseDown(event) {
+      var outerRect = getBoundingClientRect();
+      var rect = canvas.getBoundingClientRect();
+      var x = (event.clientX - rect.left - outerRect.left) * (canvas.width / (rect.right - rect.left)) - grid_size;
+      var y = (event.clientY - rect.top - outerRect.top) * (canvas.height / (rect.bottom - rect.top)) - (canvas.height - grid_size);
+
+      var hits = points.filter(function (rect) { return x > rect.hit_x && x < rect.hit_x + rect.hit_width && y > rect.hit_y && y < rect.hit_y + rect.hit_height });
+
+      if (hits.length > 0) {
+        selectedPoint = hits[hits.length - 1];
+        selectionStart = selectedPoint.y;
+        yStart = y;
+        canvas.addEventListener("mousemove", onMouseMove)
+      } else {
+        selectedPoint = undefined;
+      }
+    }
+
+    function onMouseUp(event) {
+      canvas.removeEventListener("mousemove", onMouseMove);
+    }
+
+    function onMouseMove(event) {
+      var outerRect = getBoundingClientRect();
+      var rect = canvas.getBoundingClientRect();
+      var x = (event.clientX - rect.left - outerRect.left) * (canvas.width / (rect.right - rect.left));
+      var y = (event.clientY - rect.top - outerRect.top) * (canvas.height / (rect.bottom - rect.top)) - (canvas.height - grid_size);
+
+      selectedPoint.y = selectionStart - (yStart - y);
+      selectedPoint.hit_y = selectedPoint.y - selectedPoint.r;
+      draw();
+    }
+
+    var showHint = false
+    function toggleHint() {
+      // showHint = !showHint;
+      // if (showHint) {
+      //     var anonymities = calculateAnonymity();
+      //     anonymities.forEach(function (item, index) {
+      //         hintTable.rows[index + 1].cells[0].innerText = item;
+      //     });
+      //     hintTable.classList.add("show");
+      // } else {
+      //     hintTable.classList.remove("show");
+      // }
+      // document.getElementById("toggleHintBtn").innerHTML = showHint ? "Hide Hint" : "Show Hint";
+    }
+
+    function getXapiObject() { }
+
+    function onInteraction() { }
+
+    function onSubmit() {
+      if (!isShowingSolution) {
+        points.forEach(function (p) {
+          var mapped = mapToDb(p.y);
+
+          if (mapped >= p.correct_from && mapped <= p.correct_to) {
+            p.correct = true;
+          }
+        });
+
+        canvas.removeEventListener("mousedown", onMouseDown);
+        canvas.removeEventListener("mouseup", onMouseUp);
+        updateLayout();
+        isShowingSolution = true;
+      } else {
+        points.forEach(function (p) {
+          p.correct = false;
+        });
+
+        canvas.addEventListener("mousedown", onMouseDown);
+        canvas.addEventListener("mouseup", onMouseUp);
+        updateLayout();
+        isShowingSolution = false;
+      }
+      draw();
+    }
+
+    function mapToDb(y) {
+      y *= -1;
+      y -= 10;
+      return y_axis.start + y * y_unit_per_pixel;
+    }
+
+    function mapToAxis(db) {
+      return map(db, y_axis.start, 40, -10, -280)
+    }
+
+    function map(num, in_min, in_max, out_min, out_max) {
+      return ((num - in_min) * (out_max - out_min) / (in_max - in_min) + out_min);
+    }
+
+    function rowToString(row) {
+      var s;
+      for (var i = 0; i < row.cells.length; i++) {
+        s += row.cells[i].firstChild.value
+      }
+      return s;
+    }
+
+    // currently not used
+    function rowToArray(row) {
+      var r = [];
+      for (var i = 0; i < row.cells.length; i++) {
+        r.push(row.cells[i].firstChild.value);
+      }
+      return r;
+    }
+
+    /** 
+        function init() -> dont delete! used for initialization.
+    **/
+    init();
+    setContent();
+    updateLayout();
+  </script>
+  <!-- EDIT card logic -->
+
+</body>
+
+</html>
