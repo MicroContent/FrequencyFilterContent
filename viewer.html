@@ -60,12 +60,7 @@
 
   <!-- EDIT card logic -->
   <script type="application/javascript">
-    var isShowingSolution = false;
-    var canvas = document.getElementById("canvas");
-    canvas.addEventListener("mousedown", onMouseDown);
-    canvas.addEventListener("mouseup", onMouseUp);
-    var points = [];
-    var coords = document.getElementById("coords");
+
 
     function setContent() {
       // Description
@@ -93,35 +88,7 @@
       draw();
 
     }
-
-    var grid_size = 25;
-    var x_axis = { start: 1000, suffix: '', datapoints: [10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 10500, 20000] };
-    var y_axis = { start: -70, suffix: 'db' };
-
-    var ctx = canvas.getContext("2d");
-
-    // canvas width
-    var canvas_width = canvas.width;
-
-    // canvas height
-    var canvas_height = canvas.height;
-
-    // no of vertical grid lines
-    var num_lines_x = Math.floor(canvas_height / grid_size);
-
-    // no of horizontal grid lines
-    var num_lines_y = Math.floor(canvas_width / grid_size);
-
-    var x_axis_distance_grid_lines = num_lines_x - 1;
-    var y_axis_distance_grid_lines = 1;
-
-    var x_pixel_per_unit = grid_size / x_axis.start;
-    var y_pixel_per_unit = grid_size / 10;
-    var y_unit_per_pixel = 10 / grid_size;
-
-    var color_points_correct = "green";
-    var color_points_wrong = "red";
-    var color_points_idle = "#3f51b5";
+   
 
     function draw() {
       // Reset
@@ -256,15 +223,11 @@
       ctx.lineTo(canvas_width, 0);
       ctx.stroke();
     }
-
-    var selectedPoint;
-    var selectionStart;
-    var yStart;
+    
     function onMouseDown(event) {
-      var outerRect = getBoundingClientRect();
-      var rect = canvas.getBoundingClientRect();
-      var x = (event.clientX - rect.left - outerRect.left) * (canvas.width / (rect.right - rect.left)) - grid_size;
-      var y = (event.clientY - rect.top - outerRect.top) * (canvas.height / (rect.bottom - rect.top)) - (canvas.height - grid_size);
+      var position = getPosition(event);
+      var x = position[0];
+      var y = position[1];
 
       var hits = points.filter(function (rect) { return x > rect.hit_x && x < rect.hit_x + rect.hit_width && y > rect.hit_y && y < rect.hit_y + rect.hit_height });
 
@@ -272,7 +235,8 @@
         selectedPoint = hits[hits.length - 1];
         selectionStart = selectedPoint.y;
         yStart = y;
-        canvas.addEventListener("mousemove", onMouseMove)
+        canvas.addEventListener("mousemove", onMouseMove);
+        canvas.addEventListener("touchmove", onMouseMove);
       } else {
         selectedPoint = undefined;
       }
@@ -280,35 +244,39 @@
 
     function onMouseUp(event) {
       canvas.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("touchmove", onMouseMove);
     }
 
     function onMouseMove(event) {
-      var outerRect = getBoundingClientRect();
-      var rect = canvas.getBoundingClientRect();
-      var x = (event.clientX - rect.left - outerRect.left) * (canvas.width / (rect.right - rect.left));
-      var y = (event.clientY - rect.top - outerRect.top) * (canvas.height / (rect.bottom - rect.top)) - (canvas.height - grid_size);
+      var position = getPosition(event);
+      var x = position[0];
+      var y = position[1];
 
       selectedPoint.y = selectionStart - (yStart - y);
       selectedPoint.hit_y = selectedPoint.y - selectedPoint.r;
+      event.preventDefault();
       draw();
     }
 
-    var showHint = false
-    function toggleHint() {
-      // showHint = !showHint;
-      // if (showHint) {
-      //     var anonymities = calculateAnonymity();
-      //     anonymities.forEach(function (item, index) {
-      //         hintTable.rows[index + 1].cells[0].innerText = item;
-      //     });
-      //     hintTable.classList.add("show");
-      // } else {
-      //     hintTable.classList.remove("show");
-      // }
-      // document.getElementById("toggleHintBtn").innerHTML = showHint ? "Hide Hint" : "Show Hint";
+    function getPosition(event) {
+      var outerRect = getBoundingClientRect();
+      var rect = canvas.getBoundingClientRect();
+      if (event.targetTouches !== undefined && event.targetTouches.length > 0) {
+        var x = (event.targetTouches[0].clientX - rect.left - outerRect.left) * (canvas.width / (rect.right - rect.left)) - grid_size;
+        var y = (event.targetTouches[0].clientY - rect.top - outerRect.top) * (canvas.height / (rect.bottom - rect.top)) - (canvas.height - grid_size);
+      } else if (event.changedTouches !== undefined && event.changedTouches.length > 0) {
+        var x = (event.changedTouches[0].clientX - rect.left - outerRect.left) * (canvas.width / (rect.right - rect.left)) - grid_size;
+        var y = (event.changedTouches[0].clientY - rect.top - outerRect.top) * (canvas.height / (rect.bottom - rect.top)) - (canvas.height - grid_size);
+      } else {
+        var x = (event.clientX - rect.left - outerRect.left) * (canvas.width / (rect.right - rect.left)) - grid_size;
+        var y = (event.clientY - rect.top - outerRect.top) * (canvas.height / (rect.bottom - rect.top)) - (canvas.height - grid_size);
+      }
+      return [x, y];
     }
 
-    function getXapiObject() { }
+    function getXapiObject() { 
+      return {};
+    }
 
     function onInteraction() { }
 
@@ -324,6 +292,8 @@
 
         canvas.removeEventListener("mousedown", onMouseDown);
         canvas.removeEventListener("mouseup", onMouseUp);
+        canvas.removeEventListener("touchstart", onMouseDown);
+        canvas.removeEventListener("touchend", onMouseUp);
         updateLayout();
         isShowingSolution = true;
       } else {
@@ -333,6 +303,8 @@
 
         canvas.addEventListener("mousedown", onMouseDown);
         canvas.addEventListener("mouseup", onMouseUp);
+        canvas.addEventListener("touchstart", onMouseDown);
+        canvas.addEventListener("touchend", onMouseUp);
         updateLayout();
         isShowingSolution = false;
       }
@@ -374,6 +346,48 @@
         function init() -> dont delete! used for initialization.
     **/
     init();
+
+    var isShowingSolution = false;
+    var canvas = document.getElementById("canvas");
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("mouseup", onMouseUp);
+    canvas.addEventListener("touchstart", onMouseDown);
+    canvas.addEventListener("touchend", onMouseUp);
+    var points = [];
+    var coords = document.getElementById("coords");
+    
+    var grid_size = 25;
+    var x_axis = { start: 1000, suffix: '', datapoints: [10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000, 10500, 20000] };
+    var y_axis = { start: -70, suffix: 'db' };
+
+    var ctx = canvas.getContext("2d");
+
+    // canvas width
+    var canvas_width = canvas.width;
+
+    // canvas height
+    var canvas_height = canvas.height;
+
+    // no of vertical grid lines
+    var num_lines_x = Math.floor(canvas_height / grid_size);
+
+    // no of horizontal grid lines
+    var num_lines_y = Math.floor(canvas_width / grid_size);
+
+    var x_axis_distance_grid_lines = num_lines_x - 1;
+    var y_axis_distance_grid_lines = 1;
+
+    var x_pixel_per_unit = grid_size / x_axis.start;
+    var y_pixel_per_unit = grid_size / 10;
+    var y_unit_per_pixel = 10 / grid_size;
+
+    var color_points_correct = "green";
+    var color_points_wrong = "red";
+    var color_points_idle = "#3f51b5";
+    var selectedPoint;
+    var selectionStart;
+    var yStart;
+
     setContent();
     updateLayout();
   </script>
